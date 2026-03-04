@@ -1,0 +1,5 @@
+{
+  "name": "AI Configuration Manager",
+  "description": "A management interface for AI criteria, system prompts, and function specifications.",
+  "requestFramePermissions": []
+}
