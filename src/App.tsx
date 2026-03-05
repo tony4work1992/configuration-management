@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { CheckSquare, Terminal, Code, Settings, Plus, X, Edit2, Trash2, Save, ChevronDown } from 'lucide-react';
-import { Criterion, Prompt, FunctionSpec } from './types';
+import { Criterion, Prompt, Specification, Column } from './types';
 import { criteriaService } from './services/criteriaService';
 import { promptsService } from './services/promptsService';
-import { functionsService } from './services/functionsService';
+import { specificationsService } from './services/specificationsService';
 
-type Tab = 'criteria' | 'prompts' | 'functions';
+type Tab = 'criteria' | 'prompts' | 'specifications';
 
 const PROJECTS = [
   { id: 'proj_alpha', name: 'Project Alpha' },
@@ -20,7 +20,7 @@ export default function App() {
   // Data State
   const [criteria, setCriteria] = useState<Criterion[]>([]);
   const [prompts, setPrompts] = useState<Prompt[]>([]);
-  const [functions, setFunctions] = useState<FunctionSpec[]>([]);
+  const [specifications, setSpecifications] = useState<Specification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -29,14 +29,14 @@ export default function App() {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        const [c, p, f] = await Promise.all([
+        const [c, p, s] = await Promise.all([
           criteriaService.getList(),
           promptsService.getList(),
-          functionsService.getList()
+          specificationsService.getList()
         ]);
         setCriteria(c);
         setPrompts(p);
-        setFunctions(f);
+        setSpecifications(s);
       } catch (error) {
         console.error('Failed to load data', error);
       } finally {
@@ -79,20 +79,23 @@ export default function App() {
     setPrompts(prompts.map(p => p.id === updated.id ? updated : p));
   };
 
-  const handleAddFunction = () => {
-    const newItem: FunctionSpec = {
+  const handleAddSpecification = () => {
+    const newItem: Specification = {
       id: Date.now().toString(),
-      code: `FUNC-${Date.now().toString().slice(-4)}`,
-      name: 'newFunction',
-      description: '',
-      parameters: '{\n  "type": "object",\n  "properties": {}\n}'
+      code: `SPEC-${Date.now().toString().slice(-4)}`,
+      name: 'New Specification',
+      themeColor: '#00C48C',
+      columns: [
+        { id: Date.now().toString() + '-1', label: 'No', name: 'no', type: 'Number', description: 'increment from 1', isLocked: true },
+        { id: Date.now().toString() + '-2', label: 'Code', name: 'code', type: 'Text', description: 'Unique identifier', isLocked: true }
+      ]
     };
-    setFunctions([...functions, newItem]);
+    setSpecifications([...specifications, newItem]);
     return newItem;
   };
 
-  const handleUpdateFunction = (updated: FunctionSpec) => {
-    setFunctions(functions.map(f => f.id === updated.id ? updated : f));
+  const handleUpdateSpecification = (updated: Specification) => {
+    setSpecifications(specifications.map(s => s.id === updated.id ? updated : s));
   };
 
   const handleSaveAll = async () => {
@@ -102,8 +105,8 @@ export default function App() {
         await criteriaService.save(criteria);
       } else if (activeTab === 'prompts') {
         await promptsService.save(prompts);
-      } else if (activeTab === 'functions') {
-        await functionsService.save(functions);
+      } else if (activeTab === 'specifications') {
+        await specificationsService.save(specifications);
       }
       alert('Data saved successfully!');
     } catch (error) {
@@ -118,7 +121,7 @@ export default function App() {
     if (confirm('Are you sure you want to delete this item?')) {
       if (activeTab === 'criteria') setCriteria(criteria.filter(c => c.id !== id));
       if (activeTab === 'prompts') setPrompts(prompts.filter(p => p.id !== id));
-      if (activeTab === 'functions') setFunctions(functions.filter(f => f.id !== id));
+      if (activeTab === 'specifications') setSpecifications(specifications.filter(s => s.id !== id));
     }
   };
 
@@ -174,15 +177,15 @@ export default function App() {
             System Prompts
           </button>
           <button
-            onClick={() => setActiveTab('functions')}
+            onClick={() => setActiveTab('specifications')}
             className={`flex items-center gap-2 pb-3 border-b-2 text-sm font-medium transition-colors ${
-              activeTab === 'functions'
+              activeTab === 'specifications'
                 ? 'border-indigo-600 text-indigo-600'
                 : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
             }`}
           >
             <Code className="w-4 h-4" />
-            Function Specs
+            Specifications
           </button>
         </div>
       </div>
@@ -215,13 +218,13 @@ export default function App() {
                     isSaving={isSaving}
                   />
                 )}
-                {activeTab === 'functions' && (
-                  <FunctionsTab 
-                    data={functions} 
-                    onUpdate={handleUpdateFunction} 
+                {activeTab === 'specifications' && (
+                  <SpecificationsTab 
+                    data={specifications} 
+                    onUpdate={handleUpdateSpecification} 
                     onDelete={handleDelete}
                     onSave={handleSaveAll}
-                    onAdd={handleAddFunction}
+                    onAdd={handleAddSpecification}
                     isSaving={isSaving}
                   />
                 )}
@@ -493,7 +496,7 @@ function PromptsTab({ data, onUpdate, onDelete, onSave, onAdd, isSaving }: { dat
   );
 }
 
-function FunctionsTab({ data, onUpdate, onDelete, onSave, onAdd, isSaving }: { data: FunctionSpec[], onUpdate: (item: FunctionSpec) => void, onDelete: (id: string) => void, onSave: () => void, onAdd: () => FunctionSpec, isSaving: boolean }) {
+function SpecificationsTab({ data, onUpdate, onDelete, onSave, onAdd, isSaving }: { data: Specification[], onUpdate: (item: Specification) => void, onDelete: (id: string) => void, onSave: () => void, onAdd: () => Specification, isSaving: boolean }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const selectedItem = data.find(item => item.id === selectedId);
@@ -503,12 +506,37 @@ function FunctionsTab({ data, onUpdate, onDelete, onSave, onAdd, isSaving }: { d
     setSelectedId(newItem.id);
   };
 
+  const handleAddColumn = () => {
+    if (!selectedItem) return;
+    const newColumn: Column = {
+      id: Date.now().toString(),
+      label: '',
+      name: '',
+      type: 'Text',
+      description: ''
+    };
+    onUpdate({
+      ...selectedItem,
+      columns: [...selectedItem.columns, newColumn]
+    });
+  };
+
+  const handleUpdateColumn = (colId: string, updates: Partial<Column>) => {
+    if (!selectedItem) return;
+    onUpdate({
+      ...selectedItem,
+      columns: selectedItem.columns.map(col => col.id === colId ? { ...col, ...updates } : col)
+    });
+  };
+
+  const THEME_COLORS = ['#00C48C', '#4D8AF0', '#FFB900', '#FF6B6B', '#A284FF', '#8E9297'];
+
   return (
     <div className="flex h-full">
       {/* Sidebar List */}
       <div className="w-1/3 border-r border-slate-200 flex flex-col bg-slate-50">
         <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-white sticky top-0 z-10">
-          <h3 className="font-semibold text-slate-700">Functions List</h3>
+          <h3 className="font-semibold text-slate-700">Specifications</h3>
           <button 
             onClick={handleAdd}
             className="flex items-center gap-1 bg-indigo-600 text-white px-3 py-1.5 rounded-md text-xs font-medium hover:bg-indigo-700 transition-colors shadow-sm"
@@ -541,7 +569,7 @@ function FunctionsTab({ data, onUpdate, onDelete, onSave, onAdd, isSaving }: { d
                   </button>
                 </div>
                 <div className="font-medium text-sm text-slate-900 truncate">{item.name || 'Untitled'}</div>
-                <div className="text-xs text-slate-500 mt-1 truncate">{item.description || 'No description'}</div>
+                <div className="text-xs text-slate-500 mt-1 truncate">{item.columns.length} columns</div>
               </div>
             ))
           )}
@@ -553,53 +581,111 @@ function FunctionsTab({ data, onUpdate, onDelete, onSave, onAdd, isSaving }: { d
         {selectedItem ? (
           <>
             <div className="p-4 border-b border-slate-200 flex justify-between items-center sticky top-0 bg-white z-10">
-              <h3 className="font-semibold text-slate-900">Edit Function</h3>
+              <h3 className="font-semibold text-slate-900">Edit Table Structure</h3>
               <button 
                 onClick={onSave}
                 disabled={isSaving}
-                className="flex items-center gap-2 bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-slate-50 transition-colors disabled:opacity-50 shadow-sm"
+                className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50 shadow-sm"
               >
                 <Save className="w-4 h-4" />
                 {isSaving ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
             <div className="p-6 overflow-y-auto flex-1">
-              <div className="space-y-6 max-w-2xl">
+              <div className="space-y-8">
+                {/* Panel Title */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Code</label>
-                  <input
-                    type="text"
-                    value={selectedItem.code}
-                    disabled
-                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm bg-slate-100 text-slate-500 cursor-not-allowed"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Function Name</label>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Panel Title</label>
                   <input
                     type="text"
                     value={selectedItem.name}
                     onChange={(e) => onUpdate({...selectedItem, name: e.target.value})}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm"
+                    placeholder="Enter panel title"
                   />
                 </div>
+
+                {/* Table Theme */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-                  <textarea
-                    value={selectedItem.description}
-                    onChange={(e) => onUpdate({...selectedItem, description: e.target.value})}
-                    rows={2}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Table Theme</label>
+                  <div className="flex gap-3">
+                    {THEME_COLORS.map(color => (
+                      <button
+                        key={color}
+                        onClick={() => onUpdate({...selectedItem, themeColor: color})}
+                        className={`w-8 h-8 rounded-full border-2 transition-transform hover:scale-110 ${
+                          selectedItem.themeColor === color ? 'border-slate-900 scale-110' : 'border-transparent'
+                        }`}
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
                 </div>
+
+                {/* Columns */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Parameters (JSON)</label>
-                  <textarea
-                    value={selectedItem.parameters}
-                    onChange={(e) => onUpdate({...selectedItem, parameters: e.target.value})}
-                    rows={12}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
-                  />
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Columns</label>
+                  <div className="space-y-3">
+                    {selectedItem.columns.map((col) => (
+                      <div key={col.id} className="flex items-center gap-3">
+                        <div className="text-slate-300">
+                          {col.isLocked ? <Settings className="w-4 h-4" /> : <ChevronDown className="w-4 h-4 opacity-50" />}
+                        </div>
+                        <div className="flex-1 grid grid-cols-4 gap-2">
+                          <input
+                            type="text"
+                            value={col.label}
+                            onChange={(e) => handleUpdateColumn(col.id, { label: e.target.value })}
+                            className="px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            placeholder="Label"
+                          />
+                          <input
+                            type="text"
+                            value={col.name}
+                            onChange={(e) => handleUpdateColumn(col.id, { name: e.target.value })}
+                            className="px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+                            placeholder="name"
+                          />
+                          <select
+                            value={col.type}
+                            onChange={(e) => handleUpdateColumn(col.id, { type: e.target.value })}
+                            className="px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
+                          >
+                            <option value="Text">Text</option>
+                            <option value="Number">Number</option>
+                            <option value="Select">Select</option>
+                            <option value="Date">Date</option>
+                          </select>
+                          <input
+                            type="text"
+                            value={col.description}
+                            onChange={(e) => handleUpdateColumn(col.id, { description: e.target.value })}
+                            className="px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            placeholder="Description"
+                          />
+                        </div>
+                        {!col.isLocked && (
+                          <button 
+                            onClick={() => onUpdate({
+                              ...selectedItem,
+                              columns: selectedItem.columns.filter(c => c.id !== col.id)
+                            })}
+                            className="text-slate-300 hover:text-red-500"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    
+                    <button 
+                      onClick={handleAddColumn}
+                      className="w-full py-3 border-2 border-dashed border-slate-200 rounded-md text-indigo-600 text-sm font-medium hover:border-indigo-300 hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Column
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

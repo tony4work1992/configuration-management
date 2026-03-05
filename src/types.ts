@@ -14,10 +14,19 @@ export interface Prompt {
   version: string;
 }
 
-export interface FunctionSpec {
+export interface Column {
+  id: string;
+  label: string;
+  name: string;
+  type: string;
+  description: string;
+  isLocked?: boolean;
+}
+
+export interface Specification {
   id: string;
   code: string;
   name: string;
-  description: string;
-  parameters: string;
+  themeColor: string;
+  columns: Column[];
 }
